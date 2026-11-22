@@ -151,6 +151,14 @@ function synthesizeArchitecturalPrompt(data: any): string {
     prompt += `### Mobile Experience\n`;
     prompt += `- **Mobile Shell Mode:** ${designConfig.mobileAppLook?.mode || "Native App Shell (Bottom Bar + Safe Area)"}\n`;
     prompt += `- **Mobile Navigation:** ${designConfig.mobileAppLook?.navigationStyle || "Bottom Tab Bar (iOS/Android)"}\n`;
+    if (designConfig.bottomBar) {
+      if (designConfig.bottomBar.enabled) {
+        const tabSummary = designConfig.bottomBar.tabs.map((t: any) => `${t.label} -> #${t.targetSectionId || t.id} (icon: ${t.icon})`).join(", ");
+        prompt += `- **Bottom Bar Configuration:** Enabled (${designConfig.bottomBar.style}${designConfig.bottomBar.showOnAllViewports ? ", visible on all viewports" : ", mobile viewport"}) with tabs: ${tabSummary}\n`;
+      } else {
+        prompt += `- **Bottom Bar Configuration:** Disabled / Removed (no fixed bottom navigation bar)\n`;
+      }
+    }
     prompt += `- **Touch Targets:** Minimum 44px tap targets, haptic touch feedback states, and safe-area insets.\n\n`;
   } else {
     prompt += `- Use a sleek, ultra-clean modern dark-mode canvas with high-contrast typography, subtle hairline borders (\`border-zinc-800\`), and vivid accent accents.\n\n`;

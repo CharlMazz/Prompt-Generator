@@ -153,6 +153,14 @@ export default function PromptPreview({
       md += `  - Text Contrast: \`${designConfig.colors.text}\`\n`;
       md += `- **Layout Architecture:** ${designConfig.layoutStyle}\n`;
       md += `- **Navigation Bar Architecture:** ${designConfig.navbarStyle || "Floating Glassmorphic Pill"}\n`;
+      if (designConfig.bottomBar) {
+        if (designConfig.bottomBar.enabled) {
+          const tabSummary = designConfig.bottomBar.tabs.map((t) => `${t.label} (#${t.targetSectionId || t.id})`).join(" | ");
+          md += `- **Bottom Action / Tab Bar:** Enabled (${designConfig.bottomBar.style}${designConfig.bottomBar.showOnAllViewports ? ", visible across all viewports" : ", mobile/app view"}) — Tabs: ${tabSummary}\n`;
+        } else {
+          md += `- **Bottom Action / Tab Bar:** Disabled / Removed (do not render fixed bottom navigation bar)\n`;
+        }
+      }
       md += `- **Container Constraint:** ${designConfig.containerWidth}\n`;
       md += `- **Corner Rounding:** ${designConfig.cornerRounding}\n`;
       md += `- **Mobile App Look:** ${designConfig.mobileAppLook.mode} (Nav: ${designConfig.mobileAppLook.navigationStyle})\n`;

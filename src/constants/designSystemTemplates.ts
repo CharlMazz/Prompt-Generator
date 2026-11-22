@@ -1,4 +1,11 @@
-import { ColorPaletteTemplate, DesignSystemConfig } from "../types";
+import { BottomBarTabItem, ColorPaletteTemplate, DesignSystemConfig } from "../types";
+
+export const DEFAULT_BOTTOM_BAR_TABS: BottomBarTabItem[] = [
+  { id: "home", label: "Inicio", icon: "home", targetSectionId: "home" },
+  { id: "services", label: "Servicios", icon: "briefcase", targetSectionId: "services" },
+  { id: "portfolio", label: "Proyectos", icon: "folder", targetSectionId: "portfolio" },
+  { id: "contact", label: "Contacto", icon: "mail", targetSectionId: "contact" }
+];
 
 export const CURATED_COLOR_PALETTES: ColorPaletteTemplate[] = [
   {
@@ -111,6 +118,12 @@ export const DEFAULT_DESIGN_SYSTEM: DesignSystemConfig = {
   },
   layoutStyle: "Modern Bento Grid Showcase",
   navbarStyle: "Floating Glassmorphic Pill",
+  bottomBar: {
+    enabled: true,
+    showOnAllViewports: false,
+    style: "Bottom Tab Bar (iOS / Android)",
+    tabs: DEFAULT_BOTTOM_BAR_TABS
+  },
   containerWidth: "Standard Contained (max-w-7xl)",
   cornerRounding: "Smooth Modern (16px)",
   backgroundTexture: "Subtle Vignette + Fine Noise Grid",

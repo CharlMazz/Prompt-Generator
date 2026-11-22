@@ -142,6 +142,32 @@ export type NavbarStyleType =
   | "Floating Action Dock Pill"
   | "Slide-In Fullscreen Overlay Drawer";
 
+export type BottomBarTabIcon =
+  | "home"
+  | "briefcase"
+  | "folder"
+  | "mail"
+  | "sparkles"
+  | "users"
+  | "shopping-bag"
+  | "calendar"
+  | "help"
+  | "globe";
+
+export interface BottomBarTabItem {
+  id: string;
+  label: string;
+  icon: BottomBarTabIcon;
+  targetSectionId?: string;
+}
+
+export interface BottomBarConfig {
+  enabled: boolean;
+  showOnAllViewports?: boolean;
+  style: "Bottom Tab Bar (iOS / Android)" | "Floating Action Dock Pill";
+  tabs: BottomBarTabItem[];
+}
+
 export interface DesignSystemConfig {
   paletteId: string;
   colors: {
@@ -154,6 +180,7 @@ export interface DesignSystemConfig {
   };
   layoutStyle: string;
   navbarStyle?: NavbarStyleType;
+  bottomBar?: BottomBarConfig;
   containerWidth: string;
   cornerRounding: string;
   backgroundTexture: string;

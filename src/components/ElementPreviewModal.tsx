@@ -58,7 +58,10 @@ import {
   ChevronUp,
   ArrowDown,
   ArrowUpDown,
-  ShoppingBag
+  ShoppingBag,
+  Trash2,
+  Pencil,
+  RotateCcw
 } from "lucide-react";
 import {
   SectionTemplate,
@@ -66,13 +69,17 @@ import {
   DesignSystemConfig,
   Title3DEffectType,
   TitleFontFamily,
-  NavbarStyleType
+  NavbarStyleType,
+  BottomBarConfig,
+  BottomBarTabIcon,
+  BottomBarTabItem
 } from "../types";
 import { DEFAULT_SECTION_TEMPLATES } from "../constants/sectionTemplates";
 import {
   CURATED_COLOR_PALETTES,
   NAVBAR_STYLE_PRESETS,
-  NavbarStylePreset
+  NavbarStylePreset,
+  DEFAULT_BOTTOM_BAR_TABS
 } from "../constants/designSystemTemplates";
 
 export interface InteractiveFeatureItem {
@@ -240,6 +247,46 @@ export function getFeatureIcon(featureId: string) {
   }
 }
 
+export const BOTTOM_BAR_ICON_OPTIONS: { id: BottomBarTabIcon; label: string }[] = [
+  { id: "home", label: "Inicio" },
+  { id: "briefcase", label: "Servicios" },
+  { id: "folder", label: "Proyectos" },
+  { id: "mail", label: "Contacto" },
+  { id: "sparkles", label: "Destacado" },
+  { id: "users", label: "Equipo" },
+  { id: "shopping-bag", label: "Tienda" },
+  { id: "calendar", label: "Reservas" },
+  { id: "help", label: "FAQ" },
+  { id: "globe", label: "Explorar" }
+];
+
+export function renderBottomBarIcon(icon: BottomBarTabIcon, className: string = "w-4 h-4") {
+  switch (icon) {
+    case "home":
+      return <Home className={className} />;
+    case "briefcase":
+      return <Briefcase className={className} />;
+    case "folder":
+      return <FolderKanban className={className} />;
+    case "mail":
+      return <Mail className={className} />;
+    case "sparkles":
+      return <Sparkles className={className} />;
+    case "users":
+      return <Users className={className} />;
+    case "shopping-bag":
+      return <ShoppingBag className={className} />;
+    case "calendar":
+      return <Calendar className={className} />;
+    case "help":
+      return <HelpCircle className={className} />;
+    case "globe":
+      return <Globe className={className} />;
+    default:
+      return <Home className={className} />;
+  }
+}
+
 interface ElementPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -285,6 +332,23 @@ export default function ElementPreviewModal({
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
   const [activeBottomTab, setActiveBottomTab] = useState<string>("home");
   const [navbarAppliedNotice, setNavbarAppliedNotice] = useState<boolean>(false);
+
+  // Customizable Bottom Bar state (add / remove / modify)
+  const [bottomBarEnabled, setBottomBarEnabled] = useState<boolean>(
+    designConfig.bottomBar?.enabled ?? true
+  );
+  const [bottomBarShowAllViewports, setBottomBarShowAllViewports] = useState<boolean>(
+    designConfig.bottomBar?.showOnAllViewports ?? false
+  );
+  const [bottomBarStyle, setBottomBarStyle] = useState<"Bottom Tab Bar (iOS / Android)" | "Floating Action Dock Pill">(
+    designConfig.bottomBar?.style || "Bottom Tab Bar (iOS / Android)"
+  );
+  const [bottomBarTabs, setBottomBarTabs] = useState<BottomBarTabItem[]>(
+    designConfig.bottomBar?.tabs && designConfig.bottomBar.tabs.length > 0
+      ? designConfig.bottomBar.tabs
+      : DEFAULT_BOTTOM_BAR_TABS
+  );
+  const [isEditingBottomBar, setIsEditingBottomBar] = useState<boolean>(false);
 
   // Sections view state
   const [activeSectionId, setActiveSectionId] = useState<string>(() => {
@@ -396,7 +460,120 @@ export default function ElementPreviewModal({
         setActiveFeatureIndex(idx);
       }
     }
-  }, [initialTab, initialSectionId, initialFeatureName, isOpen]);
+    if (designConfig.bottomBar) {
+      setBottomBarEnabled(designConfig.bottomBar.enabled);
+      setBottomBarShowAllViewports(Boolean(designConfig.bottomBar.showOnAllViewports));
+      setBottomBarStyle(designConfig.bottomBar.style);
+      if (designConfig.bottomBar.tabs && designConfig.bottomBar.tabs.length > 0) {
+        setBottomBarTabs(designConfig.bottomBar.tabs);
+      }
+    }
+  }, [initialTab, initialSectionId, initialFeatureName, isOpen, designConfig.bottomBar]);
+
+  // Helper to update and persist Bottom Bar configuration to project
+  const syncBottomBarConfig = (overrides: Partial<BottomBarConfig>) => {
+    const nextEnabled = overrides.enabled !== undefined ? overrides.enabled : bottomBarEnabled;
+    const nextShowAll = overrides.showOnAllViewports !== undefined ? overrides.showOnAllViewports : bottomBarShowAllViewports;
+    const nextStyle = overrides.style !== undefined ? overrides.style : bottomBarStyle;
+    const nextTabs = overrides.tabs !== undefined ? overrides.tabs : bottomBarTabs;
+
+    if (overrides.enabled !== undefined) setBottomBarEnabled(nextEnabled);
+    if (overrides.showOnAllViewports !== undefined) setBottomBarShowAllViewports(nextShowAll);
+    if (overrides.style !== undefined) setBottomBarStyle(nextStyle);
+    if (overrides.tabs !== undefined) setBottomBarTabs(nextTabs);
+
+    if (onDesignConfigChange) {
+      onDesignConfigChange({
+        ...designConfig,
+        bottomBar: {
+          enabled: nextEnabled,
+          showOnAllViewports: nextShowAll,
+          style: nextStyle,
+          tabs: nextTabs
+        },
+        mobileAppLook: {
+          ...designConfig.mobileAppLook,
+          navigationStyle:
+            nextStyle === "Floating Action Dock Pill"
+              ? "Floating Action Dock Pill"
+              : "Bottom Tab Bar (iOS/Android)"
+        }
+      });
+    }
+  };
+
+  const handleAddBottomBar = () => {
+    syncBottomBarConfig({
+      enabled: true,
+      showOnAllViewports: true
+    });
+  };
+
+  const handleRemoveBottomBar = () => {
+    setIsEditingBottomBar(false);
+    syncBottomBarConfig({
+      enabled: false,
+      showOnAllViewports: false
+    });
+  };
+
+  const handleAddBottomBarTab = () => {
+    if (bottomBarTabs.length >= 6) return;
+    const presets: { label: string; icon: BottomBarTabIcon; targetSectionId: string }[] = [
+      { label: "Destacados", icon: "sparkles", targetSectionId: "features" },
+      { label: "Precios", icon: "shopping-bag", targetSectionId: "pricing" },
+      { label: "Equipo", icon: "users", targetSectionId: "about" },
+      { label: "Reservar", icon: "calendar", targetSectionId: "contact" },
+      { label: "FAQ", icon: "help", targetSectionId: "faq" },
+      { label: "Explorar", icon: "globe", targetSectionId: "home" }
+    ];
+    const nextPreset = presets[bottomBarTabs.length % presets.length];
+    const newTab: BottomBarTabItem = {
+      id: `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      label: nextPreset.label,
+      icon: nextPreset.icon,
+      targetSectionId: nextPreset.targetSectionId
+    };
+    syncBottomBarConfig({ tabs: [...bottomBarTabs, newTab] });
+    setActiveBottomTab(newTab.id);
+  };
+
+  const handleUpdateBottomBarTab = (tabId: string, patch: Partial<BottomBarTabItem>) => {
+    const nextTabs = bottomBarTabs.map((t) => (t.id === tabId ? { ...t, ...patch } : t));
+    syncBottomBarConfig({ tabs: nextTabs });
+  };
+
+  const handleRemoveBottomBarTab = (tabId: string) => {
+    if (bottomBarTabs.length <= 1) return;
+    const nextTabs = bottomBarTabs.filter((t) => t.id !== tabId);
+    if (activeBottomTab === tabId && nextTabs[0]) {
+      setActiveBottomTab(nextTabs[0].id);
+    }
+    syncBottomBarConfig({ tabs: nextTabs });
+  };
+
+  const handleMoveBottomBarTab = (index: number, direction: -1 | 1) => {
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= bottomBarTabs.length) return;
+    const nextTabs = [...bottomBarTabs];
+    const [moved] = nextTabs.splice(index, 1);
+    nextTabs.splice(targetIdx, 0, moved);
+    syncBottomBarConfig({ tabs: nextTabs });
+  };
+
+  const handleResetBottomBarDefaults = () => {
+    syncBottomBarConfig({
+      enabled: true,
+      style: "Bottom Tab Bar (iOS / Android)",
+      tabs: DEFAULT_BOTTOM_BAR_TABS
+    });
+    setActiveBottomTab("home");
+  };
+
+  const isBottomBarShownInPreview =
+    bottomBarEnabled &&
+    (bottomBarShowAllViewports ||
+      (showNavbarOnSectionPreview && (viewport === "mobile" || selectedNavbarStyle === "Bottom Tab Bar (iOS / Android)")));
 
   // When active section changes, load its layout and modules into local draft
   useEffect(() => {
@@ -895,6 +1072,53 @@ export default function ElementPreviewModal({
                     </button>
                   </div>
 
+                  {/* Bottom Bar Controls: Agregar / Modificar / Quitar */}
+                  <div className="flex items-center gap-1.5 bg-zinc-900/90 px-2.5 py-1 rounded-lg border border-zinc-800">
+                    <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+                      <Smartphone className="w-3 h-3 text-amber-500" />
+                      Barra Inferior:
+                    </span>
+                    {!isBottomBarShownInPreview ? (
+                      <button
+                        type="button"
+                        id="btn-add-bottom-bar-status"
+                        onClick={handleAddBottomBar}
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition-colors cursor-pointer flex items-center gap-1"
+                        title="Agregar barra de navegación inferior a la vista previa y al proyecto"
+                      >
+                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                        <span>Agregar</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          id="btn-edit-bottom-bar-status"
+                          onClick={() => setIsEditingBottomBar(!isEditingBottomBar)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer flex items-center gap-1 ${
+                            isEditingBottomBar
+                              ? "bg-amber-500 text-zinc-950 border-amber-400"
+                              : "bg-zinc-800 hover:bg-zinc-700 text-amber-300 border-zinc-700"
+                          }`}
+                          title="Modificar botones, íconos y estilo de la barra inferior"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          <span>Modificar</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="btn-remove-bottom-bar-status"
+                          onClick={handleRemoveBottomBar}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 transition-colors cursor-pointer flex items-center gap-1"
+                          title="Quitar barra de navegación inferior"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Quitar</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-3 text-[11px]">
                     <span>{localSubmodules.length} submódulos activos</span>
                     <span>•</span>
@@ -1174,11 +1398,15 @@ export default function ElementPreviewModal({
                     </div>
                   )}
 
-                  {/* Optional Bottom Mobile Tab Bar Render */}
-                  {showNavbarOnSectionPreview && (viewport === "mobile" || selectedNavbarStyle === "Bottom Tab Bar (iOS / Android)") && (
-                    <div className="sticky bottom-0 z-20 border-t border-zinc-800/40 shrink-0 mt-auto bg-zinc-950/95 backdrop-blur-md">
+                  {/* Optional Bottom Mobile Tab Bar Render (div:nth-of-type(4) inside #sample-preview-viewport-scroll) */}
+                  {isBottomBarShownInPreview && (
+                    <div
+                      id="preview-bottom-bar-container"
+                      className="sticky bottom-0 z-20 border-t border-zinc-800/40 shrink-0 mt-auto bg-zinc-950/95 backdrop-blur-md group/bottombar relative"
+                    >
+                      {/* First child div (div:nth-of-type(1)): The Bottom Bar itself */}
                       {renderNavigationBarPreview({
-                        style: "Bottom Tab Bar (iOS / Android)",
+                        style: bottomBarStyle,
                         clientName,
                         theme: previewTheme,
                         isMobile: true,
@@ -1188,14 +1416,279 @@ export default function ElementPreviewModal({
                         drawerOpen: mobileDrawerOpen,
                         setDrawerOpen: setMobileDrawerOpen,
                         activeBottomTab,
-                        setActiveBottomTab
+                        setActiveBottomTab,
+                        bottomBarTabs,
+                        onBottomTabSelect: (tab) => {
+                          setActiveBottomTab(tab.id);
+                          if (previewDisplayMode === "full_page" && tab.targetSectionId) {
+                            handleScrollToSection(tab.targetSectionId);
+                          }
+                        }
                       })}
+
+                      {/* Inline Quick-Actions Pill attached to the bar (Agregar botón / Modificar / Quitar) */}
+                      <div
+                        id="bottom-bar-quick-actions"
+                        className={`absolute -top-7 right-2 z-30 flex items-center gap-1 px-1.5 py-0.5 rounded-full border shadow-lg backdrop-blur-md transition-all text-[10px] font-semibold ${
+                          isEditingBottomBar
+                            ? "bg-zinc-900/95 border-amber-500/60 opacity-100"
+                            : "bg-zinc-900/90 border-zinc-700/80 opacity-90 group-hover/bottombar:opacity-100"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          id="btn-quick-add-tab"
+                          onClick={() => {
+                            handleAddBottomBarTab();
+                            setIsEditingBottomBar(true);
+                          }}
+                          disabled={bottomBarTabs.length >= 6}
+                          title={bottomBarTabs.length >= 6 ? "Máximo 6 botones" : "Agregar nuevo botón a esta barra"}
+                          className="px-1.5 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 flex items-center gap-0.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>Agregar botón</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="btn-quick-edit-bottom-bar"
+                          onClick={() => setIsEditingBottomBar(!isEditingBottomBar)}
+                          title="Modificar botones, etiquetas, íconos y estilo de esta barra"
+                          className={`px-1.5 py-0.5 rounded-full flex items-center gap-0.5 cursor-pointer transition-colors ${
+                            isEditingBottomBar
+                              ? "bg-amber-500 text-zinc-950 font-bold"
+                              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                          }`}
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          <span>{isEditingBottomBar ? "Cerrar editor" : "Modificar"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="btn-quick-remove-bottom-bar"
+                          onClick={handleRemoveBottomBar}
+                          title="Quitar esta barra inferior"
+                          className="px-1.5 py-0.5 rounded-full bg-red-500/15 hover:bg-red-500/30 text-red-300 flex items-center gap-0.5 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Quitar</span>
+                        </button>
+                      </div>
+
+                      {/* Inline Bottom Bar Editor Drawer */}
+                      {isEditingBottomBar && (
+                        <div
+                          id="bottom-bar-editor-panel"
+                          className="border-t border-amber-500/30 bg-zinc-950/98 text-zinc-100 p-3 sm:p-4 space-y-3 text-xs shadow-2xl animate-fade-in"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-zinc-800">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                                <Sliders className="w-3.5 h-3.5" />
+                                Modificar Barra Inferior
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
+                                ✓ Sincronizado
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => syncBottomBarConfig({ style: "Bottom Tab Bar (iOS / Android)" })}
+                                  className={`px-2 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
+                                    bottomBarStyle === "Bottom Tab Bar (iOS / Android)"
+                                      ? "bg-amber-500 text-zinc-950 font-bold"
+                                      : "text-zinc-400 hover:text-white"
+                                  }`}
+                                >
+                                  Tab Bar (iOS/Android)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => syncBottomBarConfig({ style: "Floating Action Dock Pill" })}
+                                  className={`px-2 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
+                                    bottomBarStyle === "Floating Action Dock Pill"
+                                      ? "bg-amber-500 text-zinc-950 font-bold"
+                                      : "text-zinc-400 hover:text-white"
+                                  }`}
+                                >
+                                  Dock Flotante
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={handleResetBottomBarDefaults}
+                                title="Restaurar botones predeterminados"
+                                className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Restaurar</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingBottomBar(false)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-[10px] cursor-pointer"
+                              >
+                                Listo
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Visibility option */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 bg-zinc-900/70 px-3 py-1.5 rounded-lg border border-zinc-800/80 text-[11px]">
+                            <label className="flex items-center gap-2 cursor-pointer text-zinc-300">
+                              <input
+                                type="checkbox"
+                                checked={bottomBarShowAllViewports}
+                                onChange={(e) => syncBottomBarConfig({ showOnAllViewports: e.target.checked })}
+                                className="rounded border-zinc-700 bg-zinc-950 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                              />
+                              <span>Mostrar barra también en vista Desktop y Tablet</span>
+                            </label>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              {bottomBarTabs.length}/6 botones
+                            </span>
+                          </div>
+
+                          {/* Editable Tab Rows */}
+                          <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                            {bottomBarTabs.map((tab, tIdx) => (
+                              <div
+                                key={tab.id}
+                                className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 bg-zinc-900/90 border border-zinc-800 rounded-lg p-1.5"
+                              >
+                                {/* Icon picker */}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="p-1.5 rounded bg-zinc-800 text-amber-400 border border-zinc-700">
+                                    {renderBottomBarIcon(tab.icon, "w-3.5 h-3.5")}
+                                  </span>
+                                  <select
+                                    value={tab.icon}
+                                    onChange={(e) =>
+                                      handleUpdateBottomBarTab(tab.id, { icon: e.target.value as BottomBarTabIcon })
+                                    }
+                                    aria-label={`Ícono para ${tab.label}`}
+                                    className="bg-zinc-950 border border-zinc-700 rounded px-1.5 py-1 text-[10px] text-zinc-200 focus:outline-hidden cursor-pointer"
+                                  >
+                                    {BOTTOM_BAR_ICON_OPTIONS.map((opt) => (
+                                      <option key={opt.id} value={opt.id}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Label input */}
+                                <input
+                                  type="text"
+                                  value={tab.label}
+                                  maxLength={18}
+                                  onChange={(e) => handleUpdateBottomBarTab(tab.id, { label: e.target.value })}
+                                  placeholder="Etiqueta..."
+                                  aria-label="Etiqueta del botón"
+                                  className="flex-1 min-w-[90px] bg-zinc-950 border border-zinc-700 focus:border-amber-500 rounded px-2 py-1 text-[11px] text-white font-medium focus:outline-hidden"
+                                />
+
+                                {/* Target section */}
+                                <select
+                                  value={tab.targetSectionId || "home"}
+                                  onChange={(e) =>
+                                    handleUpdateBottomBarTab(tab.id, { targetSectionId: e.target.value })
+                                  }
+                                  aria-label={`Sección destino para ${tab.label}`}
+                                  className="bg-zinc-950 border border-zinc-700 rounded px-1.5 py-1 text-[10px] text-amber-300 focus:outline-hidden cursor-pointer"
+                                >
+                                  {DEFAULT_SECTION_TEMPLATES.map((sec) => (
+                                    <option key={sec.id} value={sec.id}>
+                                      #{sec.id} ({sec.name.split("/")[0].trim()})
+                                    </option>
+                                  ))}
+                                </select>
+
+                                {/* Reorder + Delete */}
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveBottomBarTab(tIdx, -1)}
+                                    disabled={tIdx === 0}
+                                    title="Mover a la izquierda"
+                                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 cursor-pointer"
+                                  >
+                                    <ChevronLeft className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveBottomBarTab(tIdx, 1)}
+                                    disabled={tIdx === bottomBarTabs.length - 1}
+                                    title="Mover a la derecha"
+                                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 cursor-pointer"
+                                  >
+                                    <ChevronRight className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveBottomBarTab(tab.id)}
+                                    disabled={bottomBarTabs.length <= 1}
+                                    title={bottomBarTabs.length <= 1 ? "Debe quedar al menos 1 botón" : "Quitar botón"}
+                                    className="p-1 rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 disabled:opacity-30 cursor-pointer ml-0.5"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Editor Footer: Add button + Remove Bar */}
+                          <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
+                            <button
+                              type="button"
+                              id="btn-editor-add-tab"
+                              onClick={handleAddBottomBarTab}
+                              disabled={bottomBarTabs.length >= 6}
+                              className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Agregar botón a la barra</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              id="btn-editor-remove-bar"
+                              onClick={handleRemoveBottomBar}
+                              className="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Quitar toda la barra</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {/* Floating Scroll Navigation Toolbar in Preview Canvas */}
                 <div className="sticky bottom-4 right-4 ml-auto z-30 flex items-center gap-1.5 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/80 p-1.5 rounded-full shadow-2xl animate-fade-in text-xs font-semibold">
+                  {!isBottomBarShownInPreview && (
+                    <>
+                      <button
+                        type="button"
+                        id="btn-add-bottom-bar-floating"
+                        onClick={handleAddBottomBar}
+                        title="Agregar barra de navegación inferior"
+                        className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-amber-500/30 rounded-full font-bold text-[11px] transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Barra Inferior</span>
+                      </button>
+                      <div className="h-4 w-px bg-zinc-700" />
+                    </>
+                  )}
                   <button
                     type="button"
                     id="btn-scroll-top-canvas"
@@ -3333,7 +3826,9 @@ function renderNavigationBarPreview({
   drawerOpen,
   setDrawerOpen,
   activeBottomTab,
-  setActiveBottomTab
+  setActiveBottomTab,
+  bottomBarTabs,
+  onBottomTabSelect
 }: {
   style: NavbarStyleType;
   clientName: string;
@@ -3346,8 +3841,11 @@ function renderNavigationBarPreview({
   setDrawerOpen: (open: boolean) => void;
   activeBottomTab: string;
   setActiveBottomTab: (tab: string) => void;
+  bottomBarTabs?: BottomBarTabItem[];
+  onBottomTabSelect?: (tab: BottomBarTabItem) => void;
 }) {
   const isDark = theme === "dark";
+  const resolvedBottomTabs = bottomBarTabs && bottomBarTabs.length > 0 ? bottomBarTabs : DEFAULT_BOTTOM_BAR_TABS;
 
   switch (style) {
     case "Floating Glassmorphic Pill":
@@ -3615,28 +4113,23 @@ function renderNavigationBarPreview({
     case "Bottom Tab Bar (iOS / Android)":
       return (
         <div
-          className={`w-full py-2 px-6 border-t flex items-center justify-around z-30 transition-all ${
+          className={`w-full py-2 px-4 sm:px-6 border-t flex items-center justify-around z-30 transition-all ${
             isDark ? "bg-zinc-950 border-zinc-800" : "bg-white border-zinc-200 shadow-lg"
           }`}
         >
-          {[
-            { id: "home", label: "Inicio", icon: <Home className="w-4 h-4" /> },
-            { id: "services", label: "Servicios", icon: <Briefcase className="w-4 h-4" /> },
-            { id: "portfolio", label: "Proyectos", icon: <FolderKanban className="w-4 h-4" /> },
-            { id: "contact", label: "Contacto", icon: <Mail className="w-4 h-4" /> }
-          ].map((tab) => {
+          {resolvedBottomTabs.map((tab) => {
             const isActive = activeBottomTab === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveBottomTab(tab.id)}
-                className={`flex flex-col items-center gap-0.5 cursor-pointer transition-colors ${
-                  isActive ? "text-amber-400 font-bold" : "text-zinc-500 hover:text-zinc-300"
+                onClick={() => (onBottomTabSelect ? onBottomTabSelect(tab) : setActiveBottomTab(tab.id))}
+                className={`flex flex-col items-center gap-0.5 cursor-pointer transition-colors min-w-[44px] ${
+                  isActive ? "text-amber-400 font-bold" : isDark ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-500 hover:text-zinc-800"
                 }`}
               >
-                {tab.icon}
-                <span className="text-[9px]">{tab.label}</span>
+                {renderBottomBarIcon(tab.icon, "w-4 h-4")}
+                <span className="text-[9px] truncate max-w-[64px]">{tab.label || "Tab"}</span>
                 {isActive && <div className="w-1 h-1 rounded-full bg-amber-400 mt-0.5" />}
               </button>
             );
@@ -3648,31 +4141,28 @@ function renderNavigationBarPreview({
       return (
         <div className="w-full flex justify-center py-2.5 px-4 z-30 pointer-events-auto">
           <div
-            className={`px-5 py-2 rounded-full border shadow-2xl flex items-center gap-5 backdrop-blur-2xl ${
+            className={`px-4 sm:px-5 py-2 rounded-full border shadow-2xl flex items-center gap-4 sm:gap-5 backdrop-blur-2xl overflow-x-auto max-w-full ${
               isDark ? "bg-zinc-900/90 border-white/10 text-white" : "bg-white/90 border-zinc-300 text-zinc-900 shadow-md"
             }`}
           >
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs font-bold text-amber-400 cursor-pointer"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Inicio</span>
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs opacity-75 hover:opacity-100 cursor-pointer"
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              <span>Servicios</span>
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs opacity-75 hover:opacity-100 cursor-pointer"
-            >
-              <Mail className="w-3.5 h-3.5" />
-              <span>Inquire</span>
-            </button>
+            {resolvedBottomTabs.map((tab) => {
+              const isActive = activeBottomTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => (onBottomTabSelect ? onBottomTabSelect(tab) : setActiveBottomTab(tab.id))}
+                  className={`flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer transition-all ${
+                    isActive
+                      ? "font-bold text-amber-400"
+                      : "opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  {renderBottomBarIcon(tab.icon, "w-3.5 h-3.5")}
+                  <span>{tab.label || "Tab"}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       );
