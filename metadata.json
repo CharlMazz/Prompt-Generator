@@ -1,0 +1,6 @@
+{
+  "name": "Lovable Prompt Generator",
+  "description": "A step-by-step workflow builder to generate professional website specifications and prompt templates for Lovable.app, with customizable questionnaire workflows and Gemini AI prompt polishing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
