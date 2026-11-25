@@ -61,7 +61,9 @@ import {
   ShoppingBag,
   Trash2,
   Pencil,
-  RotateCcw
+  RotateCcw,
+  Bot,
+  Send
 } from "lucide-react";
 import {
   SectionTemplate,
@@ -72,7 +74,8 @@ import {
   NavbarStyleType,
   BottomBarConfig,
   BottomBarTabIcon,
-  BottomBarTabItem
+  BottomBarTabItem,
+  CustomFeatureConfig
 } from "../types";
 import { DEFAULT_SECTION_TEMPLATES } from "../constants/sectionTemplates";
 import {
@@ -219,6 +222,20 @@ export const PRESET_FEATURES_LIST: InteractiveFeatureItem[] = [
     ],
     benefits: "Asegura que la navegación principal esté siempre visible y adaptada a la identidad de marca.",
     techDetails: "Backdrop-filter CSS y dock anclado condicionalmente al viewport."
+  },
+  {
+    id: "AI Chatbot Widget",
+    name: "AI Chatbot & Asistente Virtual",
+    category: "Asistencia & Conversión 24/7",
+    description: "Burbuja flotante interactiva con ventana de chat en vivo, respuestas rápidas (quick replies), captura de leads y atención automatizada 24/7.",
+    badge: "Chat en Vivo",
+    highlights: [
+      "Burbuja flotante en esquina inferior con indicador de estado en línea y notificación",
+      "Botones de respuesta rápida (Precios, Agendar Demo, Soporte) para interacción instantánea",
+      "Historial de mensajes fluido con indicador de escritura y captura opcional de contacto"
+    ],
+    benefits: "Responde dudas frecuentes al instante, califica prospectos automáticamente y aumenta la captura de leads hasta un 35%.",
+    techDetails: "Widget flotante posicionado en viewport con estado de conversación React y transiciones suaves."
   }
 ];
 
@@ -242,6 +259,8 @@ export function getFeatureIcon(featureId: string) {
       return <Menu className="w-3.5 h-3.5 text-indigo-400" />;
     case "Navigation Bar Styles":
       return <Compass className="w-3.5 h-3.5 text-teal-400" />;
+    case "AI Chatbot Widget":
+      return <MessageSquare className="w-3.5 h-3.5 text-amber-400" />;
     default:
       return <Sparkles className="w-3.5 h-3.5 text-amber-400" />;
   }
@@ -294,6 +313,9 @@ interface ElementPreviewModalProps {
   onSelectedSectionsChange: (sections: SelectedSectionConfig[]) => void;
   chosenFeatures: string[];
   onToggleFeature: (featureName: string) => void;
+  customFeatures?: CustomFeatureConfig[];
+  onAddCustomFeature?: (feature: CustomFeatureConfig) => void;
+  onRemoveCustomFeature?: (id: string) => void;
   designConfig: DesignSystemConfig;
   onDesignConfigChange?: (config: DesignSystemConfig) => void;
   clientName?: string;
@@ -309,6 +331,9 @@ export default function ElementPreviewModal({
   onSelectedSectionsChange,
   chosenFeatures,
   onToggleFeature,
+  customFeatures = [],
+  onAddCustomFeature,
+  onRemoveCustomFeature,
   designConfig,
   onDesignConfigChange,
   clientName = "Acme Studio",
@@ -438,6 +463,35 @@ export default function ElementPreviewModal({
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
 
+  // Interactive Chatbot Demo States
+  const [chatbotOpen, setChatbotOpen] = useState(true);
+  const [chatbotInput, setChatbotInput] = useState("");
+  const [chatbotTyping, setChatbotTyping] = useState(false);
+  const [chatbotMessages, setChatbotMessages] = useState<{ role: "bot" | "user"; text: string }[]>([
+    { role: "bot", text: `¡Hola! Soy el asistente virtual de ${clientName}. ¿En qué puedo ayudarte hoy?` }
+  ]);
+
+  // Inline custom feature creation form state inside modal
+  const [showCustomFeatureForm, setShowCustomFeatureForm] = useState(false);
+  const [customFeatName, setCustomFeatName] = useState("");
+  const [customFeatCategory, setCustomFeatCategory] = useState("Widget Interactivo");
+  const [customFeatDesc, setCustomFeatDesc] = useState("");
+
+  // Combined Preset + Custom Features List
+  const customFeatureItems: InteractiveFeatureItem[] = customFeatures.map((cf) => ({
+    id: cf.id,
+    name: cf.name,
+    category: cf.category || "Característica Personalizada",
+    description: cf.description || "Módulo interactivo personalizado agregado a este proyecto.",
+    badge: cf.badge || "Personalizada",
+    highlights: cf.directives
+      ? [cf.directives, "Integración modular React + Tailwind CSS", "Totalmente responsivo en desktop y móvil"]
+      : ["Integración modular React + Tailwind CSS", "Diseño coherente con la paleta del sitio", "Totalmente responsivo en desktop y móvil"],
+    benefits: "Funcionalidad a medida diseñada para impulsar la interacción y conversión del sitio.",
+    techDetails: cf.directives || "Componente React modular con estado controlado y accesibilidad completa."
+  }));
+  const featuresList: InteractiveFeatureItem[] = [...PRESET_FEATURES_LIST, ...customFeatureItems];
+
   // Design preview state
   const [previewHeadlineText, setPreviewHeadlineText] = useState("NEXT GENERATION ARCHITECTURE");
   const [previewFont, setPreviewFont] = useState<TitleFontFamily>(designConfig.titleFontStyle?.fontFamily || "Space Grotesk");
@@ -450,7 +504,7 @@ export default function ElementPreviewModal({
     if (initialTab) setActiveTab(initialTab);
     if (initialSectionId) setActiveSectionId(initialSectionId);
     if (initialFeatureName) {
-      const idx = PRESET_FEATURES_LIST.findIndex(
+      const idx = featuresList.findIndex(
         (f) =>
           f.id.toLowerCase() === initialFeatureName.toLowerCase() ||
           f.name.toLowerCase().includes(initialFeatureName.toLowerCase()) ||
@@ -468,7 +522,7 @@ export default function ElementPreviewModal({
         setBottomBarTabs(designConfig.bottomBar.tabs);
       }
     }
-  }, [initialTab, initialSectionId, initialFeatureName, isOpen, designConfig.bottomBar]);
+  }, [initialTab, initialSectionId, initialFeatureName, isOpen, designConfig.bottomBar, customFeatures.length]);
 
   // Helper to update and persist Bottom Bar configuration to project
   const syncBottomBarConfig = (overrides: Partial<BottomBarConfig>) => {
@@ -650,8 +704,7 @@ export default function ElementPreviewModal({
     );
   };
 
-  // Special Interactive Features list
-  const featuresList = PRESET_FEATURES_LIST;
+  // Special Interactive Features list is computed above (PRESET_FEATURES_LIST + customFeatures)
 
   // Helper for font class
   const getFontFamilyClass = (family: TitleFontFamily) => {
@@ -1073,8 +1126,12 @@ export default function ElementPreviewModal({
                   </div>
 
                   {/* Bottom Bar Controls: Agregar / Modificar / Quitar */}
-                  <div className="flex items-center gap-1.5 bg-zinc-900/90 px-2.5 py-1 rounded-lg border border-zinc-800">
-                    <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors ${
+                    !isBottomBarShownInPreview
+                      ? "bg-amber-500/10 border-amber-500/40"
+                      : "bg-zinc-900/90 border-zinc-800"
+                  }`}>
+                    <span className="text-[11px] font-semibold text-zinc-200 flex items-center gap-1">
                       <Smartphone className="w-3 h-3 text-amber-500" />
                       Barra Inferior:
                     </span>
@@ -1083,11 +1140,11 @@ export default function ElementPreviewModal({
                         type="button"
                         id="btn-add-bottom-bar-status"
                         onClick={handleAddBottomBar}
-                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition-colors cursor-pointer flex items-center gap-1"
-                        title="Agregar barra de navegación inferior a la vista previa y al proyecto"
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                        title="Mostrar y activar barra de navegación inferior en esta vista previa y en el proyecto"
                       >
                         <Plus className="w-3 h-3 stroke-[2.5]" />
-                        <span>Agregar</span>
+                        <span>{bottomBarEnabled ? "Mostrar / Editar" : "Agregar"}</span>
                       </button>
                     ) : (
                       <>
@@ -1815,10 +1872,57 @@ export default function ElementPreviewModal({
                     <span>•</span>
                     <span className="text-amber-400">Interactivo con desplazamiento en vivo</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-zinc-400">
-                      Desplázate hacia abajo para ver el comportamiento sticky y blur
+
+                  {/* Bottom Bar Controls in Navbars Tab */}
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-colors ${
+                    !isBottomBarShownInPreview
+                      ? "bg-amber-500/10 border-amber-500/40"
+                      : "bg-zinc-900/90 border-zinc-800"
+                  }`}>
+                    <span className="text-[11px] font-semibold text-zinc-200 flex items-center gap-1">
+                      <Smartphone className="w-3 h-3 text-amber-500" />
+                      Barra Inferior:
                     </span>
+                    {!isBottomBarShownInPreview ? (
+                      <button
+                        type="button"
+                        id="btn-add-bottom-bar-navbar-status"
+                        onClick={handleAddBottomBar}
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                        title="Mostrar y activar barra de navegación inferior"
+                      >
+                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                        <span>{bottomBarEnabled ? "Mostrar / Editar" : "Agregar"}</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          id="btn-edit-bottom-bar-navbar-status"
+                          onClick={() => setIsEditingBottomBar(!isEditingBottomBar)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer flex items-center gap-1 ${
+                            isEditingBottomBar
+                              ? "bg-amber-500 text-zinc-950 border-amber-400"
+                              : "bg-zinc-800 hover:bg-zinc-700 text-amber-300 border-zinc-700"
+                          }`}
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          <span>Modificar</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="btn-remove-bottom-bar-navbar-status"
+                          onClick={handleRemoveBottomBar}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Quitar</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => handleScrollDownPage("sample-preview-navbar-viewport")}
@@ -2016,11 +2120,14 @@ export default function ElementPreviewModal({
                     </footer>
                   </div>
 
-                  {/* Render Bottom Navbar if Mobile or Bottom Tab Bar selected */}
-                  {(viewport === "mobile" || selectedNavbarStyle === "Bottom Tab Bar (iOS / Android)") && (
-                    <div className="sticky bottom-0 z-20 border-t border-zinc-800/40 shrink-0 mt-auto bg-zinc-950/95 backdrop-blur-md">
+                  {/* Interactive Bottom Bar in Navbars Tab */}
+                  {isBottomBarShownInPreview && (
+                    <div
+                      id="preview-bottom-bar-container-navbar"
+                      className="sticky bottom-0 z-20 border-t border-zinc-800/40 shrink-0 mt-auto bg-zinc-950/95 backdrop-blur-md group/bottombar relative"
+                    >
                       {renderNavigationBarPreview({
-                        style: "Bottom Tab Bar (iOS / Android)",
+                        style: bottomBarStyle,
                         clientName,
                         theme: previewTheme,
                         isMobile: true,
@@ -2030,14 +2137,173 @@ export default function ElementPreviewModal({
                         drawerOpen: mobileDrawerOpen,
                         setDrawerOpen: setMobileDrawerOpen,
                         activeBottomTab,
-                        setActiveBottomTab
+                        setActiveBottomTab,
+                        bottomBarTabs,
+                        onBottomTabSelect: (tab) => setActiveBottomTab(tab.id)
                       })}
+
+                      {/* Inline Quick-Actions Pill attached to the bar */}
+                      <div
+                        className={`absolute -top-7 right-2 z-30 flex items-center gap-1 px-1.5 py-0.5 rounded-full border shadow-lg backdrop-blur-md transition-all text-[10px] font-semibold ${
+                          isEditingBottomBar
+                            ? "bg-zinc-900/95 border-amber-500/60 opacity-100"
+                            : "bg-zinc-900/90 border-zinc-700/80 opacity-90 group-hover/bottombar:opacity-100"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleAddBottomBarTab();
+                            setIsEditingBottomBar(true);
+                          }}
+                          disabled={bottomBarTabs.length >= 6}
+                          className="px-1.5 py-0.5 rounded-full bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 flex items-center gap-0.5 cursor-pointer disabled:opacity-40 transition-colors"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                          <span>Agregar botón</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingBottomBar(!isEditingBottomBar)}
+                          className={`px-1.5 py-0.5 rounded-full flex items-center gap-0.5 cursor-pointer transition-colors ${
+                            isEditingBottomBar
+                              ? "bg-amber-500 text-zinc-950 font-bold"
+                              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                          }`}
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          <span>{isEditingBottomBar ? "Cerrar editor" : "Modificar"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveBottomBar}
+                          className="px-1.5 py-0.5 rounded-full bg-red-500/15 hover:bg-red-500/30 text-red-300 flex items-center gap-0.5 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Quitar</span>
+                        </button>
+                      </div>
+
+                      {isEditingBottomBar && (
+                        <div className="border-t border-amber-500/30 bg-zinc-950/98 text-zinc-100 p-3 sm:p-4 space-y-3 text-xs shadow-2xl animate-fade-in">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-zinc-800">
+                            <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                              <Sliders className="w-3.5 h-3.5" />
+                              Modificar Barra Inferior ({bottomBarTabs.length}/6)
+                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => syncBottomBarConfig({ style: "Bottom Tab Bar (iOS / Android)" })}
+                                  className={`px-2 py-1 rounded-md font-semibold cursor-pointer ${
+                                    bottomBarStyle === "Bottom Tab Bar (iOS / Android)"
+                                      ? "bg-amber-500 text-zinc-950 font-bold"
+                                      : "text-zinc-400 hover:text-white"
+                                  }`}
+                                >
+                                  Tab Bar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => syncBottomBarConfig({ style: "Floating Action Dock Pill" })}
+                                  className={`px-2 py-1 rounded-md font-semibold cursor-pointer ${
+                                    bottomBarStyle === "Floating Action Dock Pill"
+                                      ? "bg-amber-500 text-zinc-950 font-bold"
+                                      : "text-zinc-400 hover:text-white"
+                                  }`}
+                                >
+                                  Dock Flotante
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleResetBottomBarDefaults}
+                                className="px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Restaurar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingBottomBar(false)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-[10px] cursor-pointer"
+                              >
+                                Listo
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                            {bottomBarTabs.map((tab, tIdx) => (
+                              <div key={tab.id} className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 bg-zinc-900/90 border border-zinc-800 rounded-lg p-1.5">
+                                <select
+                                  value={tab.icon}
+                                  onChange={(e) => handleUpdateBottomBarTab(tab.id, { icon: e.target.value as BottomBarTabIcon })}
+                                  className="bg-zinc-950 border border-zinc-700 rounded px-1.5 py-1 text-[10px] text-zinc-200 cursor-pointer"
+                                >
+                                  {BOTTOM_BAR_ICON_OPTIONS.map((opt) => (
+                                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  value={tab.label}
+                                  maxLength={18}
+                                  onChange={(e) => handleUpdateBottomBarTab(tab.id, { label: e.target.value })}
+                                  className="flex-1 min-w-[90px] bg-zinc-950 border border-zinc-700 focus:border-amber-500 rounded px-2 py-1 text-[11px] text-white font-medium focus:outline-hidden"
+                                />
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveBottomBarTab(tIdx, -1)}
+                                    disabled={tIdx === 0}
+                                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 cursor-pointer"
+                                  >
+                                    <ChevronLeft className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveBottomBarTab(tIdx, 1)}
+                                    disabled={tIdx === bottomBarTabs.length - 1}
+                                    className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-30 cursor-pointer"
+                                  >
+                                    <ChevronRight className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveBottomBarTab(tab.id)}
+                                    disabled={bottomBarTabs.length <= 1}
+                                    className="p-1 rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 disabled:opacity-30 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {/* Floating Scroll Navigation Toolbar in Navbar Canvas */}
                 <div className="sticky bottom-4 right-4 ml-auto z-30 flex items-center gap-1.5 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/80 p-1.5 rounded-full shadow-2xl animate-fade-in text-xs font-semibold">
+                  {!isBottomBarShownInPreview && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleAddBottomBar}
+                        title="Agregar barra de navegación inferior"
+                        className="flex items-center gap-1 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-amber-500/30 rounded-full font-bold text-[11px] transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Barra Inferior</span>
+                      </button>
+                      <div className="h-4 w-px bg-zinc-700" />
+                    </>
+                  )}
                   <button
                     type="button"
                     id="btn-scroll-top-navbar"
@@ -2074,21 +2340,85 @@ export default function ElementPreviewModal({
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      Efectos Interactivos Disponibles:
+                      Efectos y Módulos:
                     </label>
                     <span className="text-[10px] text-zinc-500 font-mono">
                       {chosenFeatures.length} activos
                     </span>
                   </div>
                   <p className="text-[11px] text-zinc-400">
-                    Pasa el cursor sobre cualquier efecto para ver la ficha flotante explicativa o haz clic para interactuar en vivo.
+                    Pasa el cursor sobre cualquier módulo para ver su ficha o haz clic para probarlo en vivo.
                   </p>
                 </div>
+
+                {/* Add Custom Feature inline button + form */}
+                {onAddCustomFeature && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      id="btn-modal-toggle-add-custom-feature"
+                      onClick={() => setShowCustomFeatureForm(!showCustomFeatureForm)}
+                      className="w-full py-2 px-3 rounded-xl border border-dashed border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{showCustomFeatureForm ? "Cerrar formulario" : "Agregar característica personalizada"}</span>
+                    </button>
+
+                    {showCustomFeatureForm && (
+                      <div className="p-3 rounded-xl bg-zinc-950 border border-amber-500/30 space-y-2 text-xs animate-fade-in">
+                        <input
+                          type="text"
+                          value={customFeatName}
+                          onChange={(e) => setCustomFeatName(e.target.value)}
+                          placeholder="Ej: Botón WhatsApp, Calendario..."
+                          className="w-full bg-zinc-900 border border-zinc-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
+                        />
+                        <input
+                          type="text"
+                          value={customFeatCategory}
+                          onChange={(e) => setCustomFeatCategory(e.target.value)}
+                          placeholder="Categoría (ej: Widget Interactivo)"
+                          className="w-full bg-zinc-900 border border-zinc-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-300 focus:outline-hidden"
+                        />
+                        <textarea
+                          rows={2}
+                          value={customFeatDesc}
+                          onChange={(e) => setCustomFeatDesc(e.target.value)}
+                          placeholder="Describe cómo funciona esta característica..."
+                          className="w-full bg-zinc-900 border border-zinc-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-300 focus:outline-hidden resize-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = customFeatName.trim();
+                            if (!trimmed) return;
+                            onAddCustomFeature({
+                              id: trimmed,
+                              name: trimmed,
+                              category: customFeatCategory.trim() || "Característica Personalizada",
+                              description: customFeatDesc.trim() || `Módulo personalizado "${trimmed}" integrado en el sitio.`,
+                              badge: "Personalizada"
+                            });
+                            setCustomFeatName("");
+                            setCustomFeatDesc("");
+                            setShowCustomFeatureForm(false);
+                            setActiveFeatureIndex(featuresList.length);
+                          }}
+                          disabled={!customFeatName.trim()}
+                          className="w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold text-xs cursor-pointer"
+                        >
+                          Guardar y Activar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   {featuresList.map((feat, idx) => {
                     const isSelectedInList = activeFeatureIndex === idx;
                     const isInProject = chosenFeatures.includes(feat.id);
+                    const isCustom = customFeatures.some((cf) => cf.id === feat.id);
                     return (
                       <div
                         key={feat.id}
@@ -2123,7 +2453,7 @@ export default function ElementPreviewModal({
                           </div>
                         </div>
 
-                        <div className="pt-1.5 border-t border-zinc-800/80 flex items-center justify-between">
+                        <div className="pt-1.5 border-t border-zinc-800/80 flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1.5">
                             {isSelectedInList ? (
                               <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
@@ -2138,20 +2468,36 @@ export default function ElementPreviewModal({
                             )}
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleFeature(feat.id);
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shrink-0 cursor-pointer ${
-                              isInProject
-                                ? "bg-amber-500 text-zinc-950 hover:bg-amber-400 shadow-2xs"
-                                : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
-                            }`}
-                          >
-                            {isInProject ? "✓ Añadido" : "+ Añadir"}
-                          </button>
+                          <div className="flex items-center gap-1">
+                            {isCustom && onRemoveCustomFeature && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveCustomFeature(feat.id);
+                                  setActiveFeatureIndex(0);
+                                }}
+                                title="Eliminar característica personalizada"
+                                className="p-1 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFeature(feat.id);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shrink-0 cursor-pointer ${
+                                isInProject
+                                  ? "bg-amber-500 text-zinc-950 hover:bg-amber-400 shadow-2xs"
+                                  : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+                              }`}
+                            >
+                              {isInProject ? "✓ Añadido" : "+ Añadir"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -2256,6 +2602,7 @@ export default function ElementPreviewModal({
                       <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl min-h-[360px] flex flex-col justify-center">
                         {renderFeatureInteractiveDemo({
                           featureId: currentActiveFeature.id,
+                          featureItem: currentActiveFeature,
                           carouselSlide,
                           setCarouselSlide,
                           isCarouselPlaying,
@@ -2283,7 +2630,15 @@ export default function ElementPreviewModal({
                           setSelectedNavbarStyle,
                           activePalette,
                           activeBottomTab,
-                          setActiveBottomTab
+                          setActiveBottomTab,
+                          chatbotOpen,
+                          setChatbotOpen,
+                          chatbotMessages,
+                          setChatbotMessages,
+                          chatbotInput,
+                          setChatbotInput,
+                          chatbotTyping,
+                          setChatbotTyping
                         })}
                       </div>
 
@@ -3311,6 +3666,7 @@ function renderSectionLivePreview({
 // =========================================================================
 function renderFeatureInteractiveDemo({
   featureId,
+  featureItem,
   carouselSlide,
   setCarouselSlide,
   isCarouselPlaying,
@@ -3338,7 +3694,15 @@ function renderFeatureInteractiveDemo({
   setSelectedNavbarStyle,
   activePalette,
   activeBottomTab,
-  setActiveBottomTab
+  setActiveBottomTab,
+  chatbotOpen,
+  setChatbotOpen,
+  chatbotMessages,
+  setChatbotMessages,
+  chatbotInput,
+  setChatbotInput,
+  chatbotTyping,
+  setChatbotTyping
 }: any) {
   switch (featureId) {
     case "Navigation Bar Styles":
@@ -3803,10 +4167,204 @@ function renderFeatureInteractiveDemo({
         </div>
       );
 
+    case "AI Chatbot Widget": {
+      const sendChatMessage = (text: string) => {
+        const clean = text.trim();
+        if (!clean || chatbotTyping) return;
+        setChatbotMessages((prev: { role: "bot" | "user"; text: string }[]) => [
+          ...prev,
+          { role: "user", text: clean }
+        ]);
+        setChatbotInput("");
+        setChatbotTyping(true);
+
+        const lower = clean.toLowerCase();
+        let reply = `¡Perfecto! En ${clientName} podemos ayudarte con "${clean}". ¿Quieres dejarnos tu correo para enviarte los detalles?`;
+        if (lower.includes("precio") || lower.includes("plan") || lower.includes("costo")) {
+          reply = `Nuestros planes en ${clientName} comienzan desde $490/mes con diseño a medida y soporte prioritario. ¿Te gustaría agendar una llamada rápida?`;
+        } else if (lower.includes("demo") || lower.includes("agendar") || lower.includes("cita")) {
+          reply = `¡Excelente! Tenemos disponibilidad mañana a las 10:00 y 16:00 hrs. Compártenos tu email para confirmar tu demo personalizada.`;
+        } else if (lower.includes("soporte") || lower.includes("ayuda")) {
+          reply = `Nuestro equipo de soporte responde en menos de 15 minutos. Cuéntanos qué necesitas resolver y lo escalamos al instante.`;
+        }
+
+        setTimeout(() => {
+          setChatbotMessages((prev: { role: "bot" | "user"; text: string }[]) => [
+            ...prev,
+            { role: "bot", text: reply }
+          ]);
+          setChatbotTyping(false);
+        }, 550);
+      };
+
+      return (
+        <div className="relative rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:p-5 min-h-[320px] flex flex-col justify-between overflow-hidden">
+          {/* Simulated host website backdrop */}
+          <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-bold text-white">{clientName} — Vista del Sitio con Chatbot Activo</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setChatbotOpen(!chatbotOpen)}
+              className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-300 text-[11px] font-semibold cursor-pointer"
+            >
+              {chatbotOpen ? "Minimizar Chat" : "Abrir Chat"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            {/* Left contextual info */}
+            <div className="space-y-2.5 text-xs text-zinc-400 pb-2">
+              <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1">
+                <div className="font-bold text-zinc-200 flex items-center gap-1.5">
+                  <Bot className="w-4 h-4 text-amber-400" />
+                  <span>Asistente Flotante Interactivo</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Prueba enviar un mensaje o usar las respuestas rápidas para simular la experiencia real que tendrá tu cliente en el sitio final.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {["Ver precios", "Agendar demo", "Hablar con soporte"].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => {
+                      if (!chatbotOpen) setChatbotOpen(true);
+                      sendChatMessage(chip);
+                    }}
+                    className="px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[10px] font-semibold cursor-pointer transition-colors"
+                  >
+                    + {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right simulated floating Chat Widget */}
+            <div className="flex flex-col items-end">
+              {chatbotOpen ? (
+                <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden animate-fade-in">
+                  <div
+                    className="px-3.5 py-2.5 flex items-center justify-between text-xs font-bold"
+                    style={{
+                      backgroundColor: activePalette?.primary || "#f59e0b",
+                      color: activePalette?.background || "#09090b"
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4" />
+                      <div>
+                        <div className="leading-tight">Asistente {clientName}</div>
+                        <div className="text-[9px] opacity-80 font-medium">En línea • Respuesta inmediata</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setChatbotOpen(false)}
+                      className="p-1 rounded-md hover:bg-black/15 cursor-pointer"
+                      title="Minimizar ventana de chat"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="p-3 space-y-2 h-44 overflow-y-auto bg-zinc-950/90 text-[11px]">
+                    {chatbotMessages.map((m: { role: "bot" | "user"; text: string }, i: number) => (
+                      <div
+                        key={i}
+                        className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[85%] px-3 py-1.5 rounded-2xl leading-relaxed ${
+                            m.role === "user"
+                              ? "bg-amber-500 text-zinc-950 font-medium rounded-br-sm"
+                              : "bg-zinc-800 text-zinc-100 rounded-bl-sm border border-zinc-700"
+                          }`}
+                        >
+                          {m.text}
+                        </div>
+                      </div>
+                    ))}
+                    {chatbotTyping && (
+                      <div className="flex justify-start">
+                        <div className="px-3 py-1.5 rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700 text-[10px]">
+                          Escribiendo...
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      sendChatMessage(chatbotInput);
+                    }}
+                    className="p-2 border-t border-zinc-800 bg-zinc-900 flex items-center gap-1.5"
+                  >
+                    <input
+                      type="text"
+                      value={chatbotInput}
+                      onChange={(e) => setChatbotInput(e.target.value)}
+                      placeholder="Escribe una consulta..."
+                      className="flex-1 bg-zinc-950 border border-zinc-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-hidden"
+                    />
+                    <button
+                      type="submit"
+                      className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 cursor-pointer"
+                      title="Enviar mensaje"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setChatbotOpen(true)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-full shadow-2xl font-bold text-xs cursor-pointer transition-transform hover:scale-105"
+                  style={{
+                    backgroundColor: activePalette?.primary || "#f59e0b",
+                    color: activePalette?.background || "#09090b"
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Chatear con {clientName}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     default:
       return (
-        <div className="text-center text-xs text-zinc-400 py-8">
-          Demostración interactiva en preparación para {featureId}.
+        <div className="rounded-2xl border border-amber-500/30 bg-zinc-950 p-6 space-y-4 text-left">
+          <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                  {featureItem?.category || "Módulo Personalizado"}
+                </div>
+                <h4 className="text-sm font-bold text-white">{featureItem?.name || featureId}</h4>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+              ✓ Listo en Especificación
+            </span>
+          </div>
+          <p className="text-xs text-zinc-300 leading-relaxed">
+            {featureItem?.description || `Módulo interactivo "${featureId}" configurado para ${clientName}.`}
+          </p>
+          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-400">
+            Este módulo personalizado se incluirá con su descripción exacta en el prompt final para que Lovable lo construya a medida.
+          </div>
         </div>
       );
   }

@@ -40,6 +40,15 @@ export interface CustomPreset {
   questions: Question[];
 }
 
+export interface CustomFeatureConfig {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  badge?: string;
+  directives?: string;
+}
+
 export interface SavedPromptTemplate {
   id: string;
   name: string;
@@ -52,6 +61,7 @@ export interface SavedPromptTemplate {
   clientSocials?: SocialLinks;
   referenceUrls: string[];
   features: string[];
+  customFeatures?: CustomFeatureConfig[];
   selectedSections: SelectedSectionConfig[];
   askMeColorsAndTheme?: boolean;
   designConfig?: DesignSystemConfig;

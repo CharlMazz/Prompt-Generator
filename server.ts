@@ -97,6 +97,7 @@ function synthesizeArchitecturalPrompt(data: any): string {
     clientSocials,
     referenceUrls = [],
     chosenFeatures = [],
+    customFeatures = [],
     mediaFiles = [],
     selectedSections = [],
     designConfig
@@ -191,7 +192,14 @@ function synthesizeArchitecturalPrompt(data: any): string {
   if (chosenFeatures.length > 0) {
     prompt += `## 4. Interactive Features & Motion Criteria\n`;
     chosenFeatures.forEach((feat: string) => {
-      prompt += `- **${feat}:** Implement fluid interactive behavior with smooth transitions, hover lift micro-interactions, and accessible keyboard states.\n`;
+      const customMatch = (customFeatures || []).find((cf: any) => cf.id === feat || cf.name === feat);
+      if (customMatch) {
+        prompt += `- **${customMatch.name}** (${customMatch.category || "Custom Feature"}): ${customMatch.description}${
+          customMatch.directives ? ` Directives: ${customMatch.directives}` : ""
+        }\n`;
+      } else {
+        prompt += `- **${feat}:** Implement fluid interactive behavior with smooth transitions, hover lift micro-interactions, and accessible keyboard states.\n`;
+      }
     });
     prompt += `\n`;
   }
@@ -229,7 +237,7 @@ function synthesizeArchitecturalPrompt(data: any): string {
 // REST API for prompt optimization with Gemini
 app.post("/api/generate-prompt", async (req, res) => {
   try {
-    const { answers, questions, clientName, clientAddress, clientUrl, clientSocials, referenceUrls, chosenFeatures, mediaFiles, selectedSections, designConfig, askMeColorsAndTheme } = req.body;
+    const { answers, questions, clientName, clientAddress, clientUrl, clientSocials, referenceUrls, chosenFeatures, customFeatures = [], mediaFiles, selectedSections, designConfig, askMeColorsAndTheme } = req.body;
 
     const ai = getGeminiClient();
     if (!ai) {
@@ -247,7 +255,12 @@ app.post("/api/generate-prompt", async (req, res) => {
     }).join("\n\n");
 
     const featuresList = chosenFeatures && chosenFeatures.length > 0 
-      ? chosenFeatures.map((f: string) => `- ${f}`).join("\n") 
+      ? chosenFeatures.map((f: string) => {
+          const customMatch = (customFeatures || []).find((cf: any) => cf.id === f || cf.name === f);
+          return customMatch
+            ? `- ${customMatch.name} (${customMatch.category || "Custom"}): ${customMatch.description}${customMatch.directives ? ` [Directives: ${customMatch.directives}]` : ""}`
+            : `- ${f}`;
+        }).join("\n") 
       : "None explicitly selected";
 
     const mediaList = mediaFiles && mediaFiles.length > 0 
@@ -296,6 +309,13 @@ app.post("/api/generate-prompt", async (req, res) => {
 - **Mobile App Look & Responsive Viewport:**
   - Mobile Shell Mode: ${designConfig.mobileAppLook?.mode || "Native App Shell (Bottom Bar + Safe Area)"}
   - Mobile Navigation: ${designConfig.mobileAppLook?.navigationStyle || "Bottom Tab Bar (iOS/Android)"}
+  - Bottom Bar Configuration: ${
+    designConfig.bottomBar
+      ? designConfig.bottomBar.enabled
+        ? `Enabled (${designConfig.bottomBar.style}${designConfig.bottomBar.showOnAllViewports ? ", all viewports" : ", mobile"}) with tabs: ${designConfig.bottomBar.tabs.map((t: any) => `${t.label} -> #${t.targetSectionId || t.id}`).join(", ")}`
+        : "Disabled / Removed (do not render fixed bottom bar)"
+      : "Default mobile bottom bar"
+  }
   - Touch Target Guidelines: Minimum 44px touch targets with smooth touch action feedback
 - **Title Typography Engine:**
   - Display Font Family: ${designConfig.titleFontStyle?.fontFamily || "Space Grotesk"}

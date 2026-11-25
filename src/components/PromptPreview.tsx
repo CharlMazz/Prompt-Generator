@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Copy, Check, FileCheck, Sparkles, AlertCircle, RefreshCw, ExternalLink, Download, ChevronDown, FileText, Palette, HelpCircle, Bookmark, Eye, Zap, Plus, ChevronRight } from "lucide-react";
-import { Answer, Question, MediaFile, SocialLinks, SelectedSectionConfig, DesignSystemConfig } from "../types";
+import { Answer, Question, MediaFile, SocialLinks, SelectedSectionConfig, DesignSystemConfig, CustomFeatureConfig } from "../types";
 import { DEFAULT_SECTION_TEMPLATES } from "../constants/sectionTemplates";
 import { PRESET_FEATURES_LIST, InteractiveFeatureItem } from "./ElementPreviewModal";
 
@@ -13,6 +13,7 @@ interface PromptPreviewProps {
   clientSocials?: SocialLinks;
   referenceUrls: string[];
   chosenFeatures: string[];
+  customFeatures?: CustomFeatureConfig[];
   mediaFiles: MediaFile[];
   selectedSections?: SelectedSectionConfig[];
   designConfig?: DesignSystemConfig;
@@ -37,6 +38,7 @@ export default function PromptPreview({
   clientSocials,
   referenceUrls,
   chosenFeatures,
+  customFeatures = [],
   mediaFiles,
   selectedSections = [],
   designConfig,
@@ -220,7 +222,17 @@ export default function PromptPreview({
       md += `### Specific Interactive Features\n`;
       md += `Include the following modules styled perfectly in React with custom UI layouts:\n`;
       chosenFeatures.forEach((feat) => {
-        md += `- **${feat}**: Ready-to-use interactivity, standard animations, and fluid responsive styling.\n`;
+        const customMatch = customFeatures.find((cf) => cf.id === feat || cf.name === feat);
+        const presetMatch = PRESET_FEATURES_LIST.find((pf) => pf.id === feat);
+        if (customMatch) {
+          md += `- **${customMatch.name}** (${customMatch.category || "Custom Feature"}): ${customMatch.description}${
+            customMatch.directives ? ` — Directives: ${customMatch.directives}` : ""
+          }\n`;
+        } else if (presetMatch) {
+          md += `- **${presetMatch.id}**: ${presetMatch.description}\n`;
+        } else {
+          md += `- **${feat}**: Ready-to-use interactivity, standard animations, and fluid responsive styling.\n`;
+        }
       });
       md += `\n`;
     }
@@ -452,12 +464,24 @@ export default function PromptPreview({
             </span>
             <div className="flex items-center gap-1.5 flex-wrap">
               {chosenFeatures.map((featId) => {
+                const customMatch = customFeatures.find((cf) => cf.id === featId || cf.name === featId);
                 const item = PRESET_FEATURES_LIST.find(
                   (f) =>
                     f.id.toLowerCase() === featId.toLowerCase() ||
                     f.name.toLowerCase().includes(featId.toLowerCase()) ||
                     featId.toLowerCase().includes(f.id.toLowerCase())
-                ) || {
+                ) || (customMatch ? {
+                  id: customMatch.id,
+                  name: customMatch.name,
+                  category: customMatch.category || "Característica Personalizada",
+                  description: customMatch.description,
+                  badge: customMatch.badge || "Personalizada",
+                  highlights: customMatch.directives
+                    ? [customMatch.directives, "Estilo responsivo React + Tailwind CSS"]
+                    : ["Integración modular React + Tailwind CSS", "Totalmente responsivo"],
+                  benefits: "Módulo personalizado incluido en el blueprint final.",
+                  techDetails: customMatch.directives || "React functional component con Tailwind CSS."
+                } : {
                   id: featId,
                   name: featId,
                   category: "Special Module",
@@ -466,7 +490,7 @@ export default function PromptPreview({
                   highlights: ["Fluid responsive styling", "Production-grade UI"],
                   benefits: "Elevates user experience and conversion.",
                   techDetails: "React functional component with Tailwind CSS."
-                };
+                });
 
                 return (
                   <div

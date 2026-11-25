@@ -31,9 +31,10 @@ import {
   Bookmark,
   FolderPlus,
   Eye,
-  X
+  X,
+  MessageSquare
 } from "lucide-react";
-import { Question, Answer, MediaFile, SocialLinks, SelectedSectionConfig, DesignSystemConfig, SavedPromptTemplate } from "./types";
+import { Question, Answer, MediaFile, SocialLinks, SelectedSectionConfig, DesignSystemConfig, SavedPromptTemplate, CustomFeatureConfig } from "./types";
 import MediaUploader from "./components/MediaUploader";
 import QuestionCustomizer from "./components/QuestionCustomizer";
 import PromptPreview from "./components/PromptPreview";
@@ -441,6 +442,12 @@ export default function App() {
     "Entry Animations",
     "Video Background Overlay"
   ]);
+  const [customFeatures, setCustomFeatures] = useState<CustomFeatureConfig[]>([]);
+  const [showAddFeatureForm, setShowAddFeatureForm] = useState(false);
+  const [newFeatureName, setNewFeatureName] = useState("");
+  const [newFeatureCategory, setNewFeatureCategory] = useState("Widget Interactivo");
+  const [newFeatureDescription, setNewFeatureDescription] = useState("");
+  const [newFeatureDirectives, setNewFeatureDirectives] = useState("");
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [askMeColorsAndTheme, setAskMeColorsAndTheme] = useState<boolean>(() => {
     const saved = localStorage.getItem("lovable_ask_colors_theme");
@@ -508,6 +515,7 @@ export default function App() {
     if (template.clientSocials !== undefined) setClientSocials(template.clientSocials);
     if (template.referenceUrls && template.referenceUrls.length > 0) setReferenceUrls(template.referenceUrls);
     if (template.features) setChosenFeatures(template.features);
+    if (template.customFeatures) setCustomFeatures(template.customFeatures);
     if (template.selectedSections) setSelectedSections(template.selectedSections);
     if (template.askMeColorsAndTheme !== undefined) setAskMeColorsAndTheme(template.askMeColorsAndTheme);
     if (template.designConfig) setDesignConfig(template.designConfig);
@@ -599,6 +607,13 @@ export default function App() {
         setChosenFeatures(JSON.parse(savedFeatures));
       } catch (e) {}
     }
+
+    const savedCustomFeatures = localStorage.getItem("lovable_custom_features");
+    if (savedCustomFeatures) {
+      try {
+        setCustomFeatures(JSON.parse(savedCustomFeatures));
+      } catch (e) {}
+    }
   }, []);
 
   // Save changes automatically
@@ -643,6 +658,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("lovable_chosen_features", JSON.stringify(chosenFeatures));
   }, [chosenFeatures]);
+
+  useEffect(() => {
+    localStorage.setItem("lovable_custom_features", JSON.stringify(customFeatures));
+  }, [customFeatures]);
 
   useEffect(() => {
     localStorage.setItem("lovable_ask_colors_theme", String(askMeColorsAndTheme));
@@ -744,6 +763,7 @@ export default function App() {
         clientSocials,
         referenceUrls,
         features: chosenFeatures,
+        customFeatures,
         selectedSections,
         askMeColorsAndTheme,
         designConfig,
@@ -795,10 +815,15 @@ export default function App() {
         "Entry Animations",
         "Video Background Overlay"
       ]);
+      setCustomFeatures([]);
       setQuestions(DEFAULT_QUESTIONS);
       setAnswers([]);
       setMediaFiles([]);
       setActivePresetId(null);
+    }
+
+    if (archetype && archetype.id !== "blank") {
+      setCustomFeatures([]);
     }
 
     // Reset workflow progress
@@ -820,6 +845,7 @@ export default function App() {
     localStorage.removeItem("lovable_design_config");
     localStorage.removeItem("lovable_selected_sections");
     localStorage.removeItem("lovable_chosen_features");
+    localStorage.removeItem("lovable_custom_features");
 
     showToast(
       archetype && archetype.id !== "blank"
@@ -838,7 +864,46 @@ export default function App() {
     { name: "Dynamic Contact Form", desc: "Polished input fields, client validation, success states." },
     { name: "Live Filterable Grid", desc: "Categorized layout gallery allowing on-the-fly filtering." },
     { name: "Responsive Mega-Menu", desc: "Sleek dropdown architecture and mobile slide drawers." },
-    { name: "Navigation Bar Styles", desc: "Adaptive navbar with glassmorphic floating pill, minimal sticky, luxury wordmark, or mobile bottom dock." }
+    { name: "Navigation Bar Styles", desc: "Adaptive navbar with glassmorphic floating pill, minimal sticky, luxury wordmark, or mobile bottom dock." },
+    { name: "AI Chatbot Widget", desc: "Burbuja flotante de chat en vivo con respuestas rápidas, asistente virtual y captura de leads 24/7." }
+  ];
+
+  const suggestedCustomFeatures: CustomFeatureConfig[] = [
+    {
+      id: "WhatsApp Floating Button",
+      name: "WhatsApp Floating Button",
+      category: "Mensajería Directa",
+      description: "Botón flotante de acceso directo a WhatsApp con mensaje prellenado en esquina inferior.",
+      badge: "Sugerida"
+    },
+    {
+      id: "Booking & Appointment Calendar",
+      name: "Booking & Appointment Calendar",
+      category: "Reservas & Agenda",
+      description: "Selector interactivo de fechas y horarios disponibles para agendar citas o demos.",
+      badge: "Sugerida"
+    },
+    {
+      id: "Newsletter Exit-Intent Popup",
+      name: "Newsletter Exit-Intent Popup",
+      category: "Captura de Leads",
+      description: "Modal elegante de suscripción con incentivo al detectar intención de salida.",
+      badge: "Sugerida"
+    },
+    {
+      id: "Multi-Language Switcher (ES/EN)",
+      name: "Multi-Language Switcher (ES/EN)",
+      category: "Internacionalización",
+      description: "Selector dinámico de idioma en la barra superior con traducción instantánea de interfaz.",
+      badge: "Sugerida"
+    },
+    {
+      id: "Cookie & Privacy Consent Banner",
+      name: "Cookie & Privacy Consent Banner",
+      category: "Cumplimiento Legal",
+      description: "Banner minimalista de consentimiento de cookies con preferencias granulares.",
+      badge: "Sugerida"
+    }
   ];
 
   const toggleFeature = (name: string) => {
@@ -847,6 +912,47 @@ export default function App() {
     } else {
       setChosenFeatures([...chosenFeatures, name]);
     }
+  };
+
+  const handleAddCustomFeature = (feature: CustomFeatureConfig) => {
+    const cleanName = feature.name.trim();
+    if (!cleanName) return;
+
+    const existingPreset = presetFeatures.find((p) => p.name.toLowerCase() === cleanName.toLowerCase());
+    if (existingPreset) {
+      if (!chosenFeatures.includes(existingPreset.name)) {
+        setChosenFeatures((prev) => [...prev, existingPreset.name]);
+      }
+      showToast(`✓ "${existingPreset.name}" ya está disponible y se activó en tu proyecto.`);
+      return;
+    }
+
+    const existingCustom = customFeatures.find((c) => c.id.toLowerCase() === cleanName.toLowerCase() || c.name.toLowerCase() === cleanName.toLowerCase());
+    if (existingCustom) {
+      if (!chosenFeatures.includes(existingCustom.id)) {
+        setChosenFeatures((prev) => [...prev, existingCustom.id]);
+      }
+      showToast(`✓ "${existingCustom.name}" activado en tu proyecto.`);
+      return;
+    }
+
+    const normalized: CustomFeatureConfig = {
+      ...feature,
+      id: cleanName,
+      name: cleanName,
+      category: feature.category?.trim() || "Característica Personalizada",
+      description: feature.description?.trim() || `Módulo interactivo "${cleanName}" integrado al sitio web.`,
+      badge: feature.badge || "Personalizada"
+    };
+
+    setCustomFeatures((prev) => [...prev, normalized]);
+    setChosenFeatures((prev) => (prev.includes(normalized.id) ? prev : [...prev, normalized.id]));
+    showToast(`✨ Característica "${normalized.name}" agregada y activada!`);
+  };
+
+  const handleRemoveCustomFeature = (id: string) => {
+    setCustomFeatures((prev) => prev.filter((c) => c.id !== id));
+    setChosenFeatures((prev) => prev.filter((f) => f !== id));
   };
 
   // --- STEP TRACKERS ---
@@ -887,6 +993,7 @@ export default function App() {
           clientSocials,
           referenceUrls,
           chosenFeatures,
+          customFeatures,
           mediaFiles,
           selectedSections,
           designConfig,
@@ -1356,18 +1463,31 @@ export default function App() {
 
                 {/* STEP 2: INTERACTIVE SPECIAL FEATURES */}
                 {currentStep === 2 && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-1.5">
                           <Layers className="w-4 h-4 text-amber-500" />
-                          Premium Layout Modules
+                          Premium Layout Modules & Features
                         </h3>
                         <p className="text-xs text-zinc-500">
-                          Select interactive effects and premium features you want in specific for this build.
+                          Selecciona módulos listos (como Chatbot o Navbars) o agrega tus propias características personalizadas.
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          id="btn-toggle-add-custom-feature"
+                          onClick={() => setShowAddFeatureForm(!showAddFeatureForm)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer shadow-2xs transition-colors ${
+                            showAddFeatureForm
+                              ? "bg-amber-500 border-amber-600 text-zinc-950"
+                              : "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-white"
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Agregar Característica</span>
+                        </button>
                         <button
                           type="button"
                           id="btn-preview-navbars-step"
@@ -1375,7 +1495,7 @@ export default function App() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold cursor-pointer shadow-2xs"
                         >
                           <Eye className="w-3.5 h-3.5 text-amber-600" />
-                          <span>👁️ Probar Navbars en Vivo</span>
+                          <span>Probar Navbars</span>
                         </button>
                         <button
                           type="button"
@@ -1384,20 +1504,162 @@ export default function App() {
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-semibold cursor-pointer shadow-2xs"
                         >
                           <Eye className="w-3.5 h-3.5 text-zinc-500" />
-                          <span>Probar Efectos en Vivo</span>
+                          <span>Probar Efectos</span>
                         </button>
                       </div>
                     </div>
 
+                    {/* Quick-Add Suggestions + Custom Feature Creator */}
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 space-y-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mr-1">
+                          Agregar rápido:
+                        </span>
+                        {suggestedCustomFeatures
+                          .filter((sf) => !customFeatures.some((cf) => cf.id.toLowerCase() === sf.id.toLowerCase()))
+                          .map((sf) => (
+                            <button
+                              key={sf.id}
+                              type="button"
+                              onClick={() => handleAddCustomFeature(sf)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-amber-50 border border-zinc-200 hover:border-amber-400 text-[10px] font-semibold text-zinc-700 hover:text-amber-900 transition-colors cursor-pointer shadow-2xs"
+                            >
+                              <Plus className="w-3 h-3 text-amber-500" />
+                              <span>{sf.name}</span>
+                            </button>
+                          ))}
+                        <button
+                          type="button"
+                          onClick={() => setShowAddFeatureForm(!showAddFeatureForm)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100/80 hover:bg-amber-200/80 border border-amber-300 text-[10px] font-bold text-amber-900 transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{showAddFeatureForm ? "Ocultar formulario" : "Crear personalizada..."}</span>
+                        </button>
+                      </div>
+
+                      {showAddFeatureForm && (
+                        <div
+                          id="custom-feature-creator-form"
+                          className="pt-2.5 border-t border-zinc-200 grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in"
+                        >
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-700 mb-1">
+                              Nombre de la característica *
+                            </label>
+                            <input
+                              type="text"
+                              id="input-custom-feature-name"
+                              value={newFeatureName}
+                              onChange={(e) => setNewFeatureName(e.target.value)}
+                              placeholder="Ej: Chatbot con IA, Calculadora de Precios..."
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-hidden focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-zinc-700 mb-1">
+                              Categoría / Tipo
+                            </label>
+                            <input
+                              type="text"
+                              id="input-custom-feature-category"
+                              value={newFeatureCategory}
+                              onChange={(e) => setNewFeatureCategory(e.target.value)}
+                              placeholder="Ej: Widget Interactivo, Reservas, Pago..."
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-hidden focus:ring-1 focus:ring-amber-400 focus:border-amber-400"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-700 mb-1">
+                              Descripción y comportamiento esperado
+                            </label>
+                            <textarea
+                              rows={2}
+                              id="input-custom-feature-desc"
+                              value={newFeatureDescription}
+                              onChange={(e) => setNewFeatureDescription(e.target.value)}
+                              placeholder="Ej: Burbuja flotante en la esquina inferior derecha que abre un chat interactivo para responder preguntas y capturar leads."
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-hidden focus:ring-1 focus:ring-amber-400 focus:border-amber-400 resize-none"
+                            />
+                          </div>
+                          <div className="sm:col-span-2 flex items-center justify-between gap-2">
+                            <input
+                              type="text"
+                              id="input-custom-feature-directives"
+                              value={newFeatureDirectives}
+                              onChange={(e) => setNewFeatureDirectives(e.target.value)}
+                              placeholder="Directiva técnica opcional (ej: Persistir estado, usar modal, etc.)"
+                              className="flex-1 px-2.5 py-1.5 text-[11px] bg-white border border-zinc-300 rounded-lg text-zinc-700 focus:outline-hidden focus:ring-1 focus:ring-amber-400"
+                            />
+                            <button
+                              type="button"
+                              id="btn-submit-custom-feature"
+                              disabled={!newFeatureName.trim()}
+                              onClick={() => {
+                                handleAddCustomFeature({
+                                  id: newFeatureName.trim(),
+                                  name: newFeatureName.trim(),
+                                  category: newFeatureCategory.trim() || "Característica Personalizada",
+                                  description:
+                                    newFeatureDescription.trim() ||
+                                    `Módulo interactivo personalizado "${newFeatureName.trim()}" integrado al sitio.`,
+                                  badge: "Personalizada",
+                                  directives: newFeatureDirectives.trim() || undefined
+                                });
+                                setNewFeatureName("");
+                                setNewFeatureDescription("");
+                                setNewFeatureDirectives("");
+                                setShowAddFeatureForm(false);
+                              }}
+                              className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-zinc-950 font-bold text-xs cursor-pointer shadow-xs shrink-0"
+                            >
+                              + Agregar al Proyecto
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-h-[340px] overflow-y-auto pr-2">
-                      {presetFeatures.map((feat) => {
-                        const isSelected = chosenFeatures.includes(feat.name);
-                        const featureDetails = PRESET_FEATURES_LIST.find((p) => p.id === feat.name || p.name.includes(feat.name));
+                      {[
+                        ...presetFeatures.map((pf) => ({
+                          id: pf.name,
+                          name: pf.name,
+                          desc: pf.desc,
+                          isCustom: false,
+                          customObj: undefined as CustomFeatureConfig | undefined
+                        })),
+                        ...customFeatures.map((cf) => ({
+                          id: cf.id,
+                          name: cf.name,
+                          desc: cf.description,
+                          isCustom: true,
+                          customObj: cf
+                        }))
+                      ].map((feat) => {
+                        const isSelected = chosenFeatures.includes(feat.id);
+                        const presetDetails = PRESET_FEATURES_LIST.find((p) => p.id === feat.id || p.name.includes(feat.name));
+                        const featureDetails: InteractiveFeatureItem | undefined =
+                          presetDetails ||
+                          (feat.customObj
+                            ? {
+                                id: feat.customObj.id,
+                                name: feat.customObj.name,
+                                category: feat.customObj.category || "Característica Personalizada",
+                                description: feat.customObj.description,
+                                badge: feat.customObj.badge || "Personalizada",
+                                highlights: feat.customObj.directives
+                                  ? [feat.customObj.directives, "Integración modular React + Tailwind CSS"]
+                                  : ["Integración modular React + Tailwind CSS", "Totalmente responsivo en desktop y móvil"],
+                                benefits: "Módulo personalizado incluido en el blueprint final para Lovable.",
+                                techDetails: feat.customObj.directives || "Componente React modular."
+                              }
+                            : undefined);
                         return (
                           <div
-                            key={feat.name}
-                            id={`feat-card-${feat.name.replace(/\s+/g, "-").toLowerCase()}`}
-                            onClick={() => toggleFeature(feat.name)}
+                            key={feat.id}
+                            id={`feat-card-${feat.id.replace(/\s+/g, "-").toLowerCase()}`}
+                            onClick={() => toggleFeature(feat.id)}
                             onMouseEnter={(e) => {
                               if (featureDetails) {
                                 const rect = e.currentTarget.getBoundingClientRect();
@@ -1416,23 +1678,41 @@ export default function App() {
                             }`}
                           >
                             <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-bold text-zinc-900 group-hover:text-amber-900 transition-colors">
-                                  {feat.name}
+                              <div className="flex items-center justify-between mb-1 gap-1.5">
+                                <span className="text-xs font-bold text-zinc-900 group-hover:text-amber-900 transition-colors flex items-center gap-1.5 min-w-0">
+                                  {feat.id === "AI Chatbot Widget" && (
+                                    <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  )}
+                                  <span className="truncate">{feat.name}</span>
                                 </span>
-                                <div
-                                  className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                    isSelected ? "bg-amber-500 border-amber-600 text-white" : "border-zinc-300 bg-white"
-                                  }`}
-                                >
-                                  {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {feat.isCustom && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveCustomFeature(feat.id);
+                                      }}
+                                      title="Eliminar característica personalizada"
+                                      className="p-1 rounded text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  <div
+                                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                      isSelected ? "bg-amber-500 border-amber-600 text-white" : "border-zinc-300 bg-white"
+                                    }`}
+                                  >
+                                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                                  </div>
                                 </div>
                               </div>
                               <p className="text-[10px] text-zinc-500 leading-normal line-clamp-2">{feat.desc}</p>
                             </div>
 
                             <div className="pt-2 mt-2 border-t border-zinc-150 flex items-center justify-between text-[10px]">
-                              <span className="text-[9px] font-semibold text-zinc-400">
+                              <span className={`text-[9px] font-semibold ${feat.isCustom ? "text-amber-700" : "text-zinc-400"}`}>
                                 {featureDetails?.badge || "Demo en vivo"}
                               </span>
                               <button
@@ -1440,9 +1720,9 @@ export default function App() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenElementPreview(
-                                    feat.name === "Navigation Bar Styles" ? "navbars" : "features",
+                                    feat.id === "Navigation Bar Styles" ? "navbars" : "features",
                                     undefined,
-                                    feat.name
+                                    feat.id
                                   );
                                 }}
                                 className="text-[10px] text-amber-600 hover:text-amber-800 font-bold flex items-center gap-1 hover:underline cursor-pointer"
@@ -1696,6 +1976,7 @@ export default function App() {
               clientSocials={clientSocials}
               referenceUrls={referenceUrls}
               chosenFeatures={chosenFeatures}
+              customFeatures={customFeatures}
               mediaFiles={mediaFiles}
               selectedSections={selectedSections}
               designConfig={designConfig}
@@ -1739,6 +2020,7 @@ export default function App() {
           clientSocials,
           referenceUrls,
           features: chosenFeatures,
+          customFeatures,
           selectedSections,
           askMeColorsAndTheme,
           designConfig,
@@ -1754,6 +2036,9 @@ export default function App() {
         onSelectedSectionsChange={setSelectedSections}
         chosenFeatures={chosenFeatures}
         onToggleFeature={toggleFeature}
+        customFeatures={customFeatures}
+        onAddCustomFeature={handleAddCustomFeature}
+        onRemoveCustomFeature={handleRemoveCustomFeature}
         designConfig={designConfig}
         onDesignConfigChange={setDesignConfig}
         clientName={clientName || "Acme Studio"}

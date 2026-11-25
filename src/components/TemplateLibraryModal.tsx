@@ -17,7 +17,7 @@ import {
   Calendar,
   ExternalLink
 } from "lucide-react";
-import { SavedPromptTemplate, SelectedSectionConfig, SocialLinks, DesignSystemConfig, Answer } from "../types";
+import { SavedPromptTemplate, SelectedSectionConfig, SocialLinks, DesignSystemConfig, Answer, CustomFeatureConfig } from "../types";
 
 interface TemplateLibraryModalProps {
   isOpen: boolean;
@@ -50,6 +50,7 @@ interface TemplateLibraryModalProps {
     clientSocials: SocialLinks;
     referenceUrls: string[];
     features: string[];
+    customFeatures?: CustomFeatureConfig[];
     selectedSections: SelectedSectionConfig[];
     askMeColorsAndTheme: boolean;
     designConfig?: DesignSystemConfig;
@@ -92,6 +93,7 @@ export default function TemplateLibraryModal({
       clientSocials: currentWorkspace.clientSocials,
       referenceUrls: currentWorkspace.referenceUrls,
       features: currentWorkspace.features,
+      customFeatures: currentWorkspace.customFeatures,
       selectedSections: currentWorkspace.selectedSections,
       askMeColorsAndTheme: currentWorkspace.askMeColorsAndTheme,
       designConfig: currentWorkspace.designConfig,
